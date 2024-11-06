@@ -1,4 +1,4 @@
-package Math::Symbolic::Custom::Collect3;
+package Math::Symbolic::Custom::Collect;
 
 use 5.006;
 use strict;
@@ -90,6 +90,8 @@ The result is often a more concise expression. However, because it does not (yet
 sub to_collected {
     my ($t1) = @_;
 
+    return undef unless defined wantarray;
+
     # 1. recursion step. 
     # Fold constants, convert decimal to rational, combine fractions, expand brackets
     my $t2 = prepare($t1);
@@ -101,50 +103,53 @@ sub to_collected {
     }
    
     # 2. collect like terms
-    my $t3;
     if ( ($t2->term_type() == T_OPERATOR) && ($t2->type() == B_DIVISION) ) {
     
         my $numerator = $t2->op1();
         my $denominator = $t2->op2();
+        my ($n_hr, $d_hr);
         
         my ($c_n, $c_n_cth) = collect_like_terms($numerator);
         my ($c_d, $c_d_cth) = collect_like_terms($denominator);
 
         if ( defined($c_n_cth) && defined($c_d_cth) ) {
             # 3. attempt to cancel down
-            ($numerator, $denominator) = cancel_down($c_n, $c_n_cth, $c_d, $c_d_cth);
+            ($numerator, $n_hr, $denominator, $d_hr) = cancel_down($c_n, $c_n_cth, $c_d, $c_d_cth);
         }
-        elsif ( defined $c_n ) {
-            $numerator = $c_n;
-        }
-        elsif ( defined $c_d ) {
-            $denominator = $c_d;
+        else {
+            if ( defined $c_n ) {
+                $numerator = $c_n;
+                $n_hr = $c_n_cth;
+            }
+            if ( defined $c_d ) {
+                $denominator = $c_d;
+                $d_hr = $c_d_cth;
+            }
         }
         
         # check denominator
         if ( ($denominator->term_type() == T_CONSTANT) && ($denominator->value() == 1) ) {
-            $t3 = $numerator;
+            return wantarray ? ($numerator, $n_hr) : $numerator;
         }
         elsif ( ($denominator->term_type() == T_CONSTANT) && ($denominator->value() == 0) ) {
             # FIXME: divide by zero at this point?!
-            $t3 = $t2;
+            return $t2;
         }
         else {
-            $t3 = Math::Symbolic::Operator->new( '/', $numerator, $denominator );
+            my $t3 = Math::Symbolic::Operator->new( '/', $numerator, $denominator );
+            return wantarray ? ($t3, $n_hr, $d_hr) : $t3;
         }
     }
     else {
         my ($collected, $ct_href) = collect_like_terms($t2);
 
         if ( defined $collected ) {
-            $t3 = $collected;
+            return wantarray ? ($collected, $ct_href) : $collected;
         }
         else {
-            $t3 = $t2;
+            return $t2;
         }
     }
-
-    return $t3;
 }
 
 
@@ -295,15 +300,18 @@ sub cancel_down {
     $n_terms{constant_accumulator} = $n_acc;
     $d_terms{constant_accumulator} = $d_acc;
 
+    my $n_hr = { terms => \%n_terms, trees => \%n_funcs };
+    my $d_hr = { terms => \%d_terms, trees => \%d_funcs };
+
     if ( $did_some_cancellation ) {
 
-        my $new_n = build_summation_tree( { terms => \%n_terms, trees => \%n_funcs } );
-        my $new_d = build_summation_tree( { terms => \%d_terms, trees => \%d_funcs } );
+        my $new_n = build_summation_tree( $n_hr );
+        my $new_d = build_summation_tree( $d_hr );
 
-        return ($new_n, $new_d);
+        return ($new_n, $n_hr, $new_d, $d_hr);
     }
 
-    return ($c_n, $c_d); 
+    return ($c_n, $n_cth, $c_d, $d_cth);
 }
 
 #### collect_like_terms
