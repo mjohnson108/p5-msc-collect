@@ -616,6 +616,21 @@ sub collect_terms {
     return \%collected_terms;
 }
 
+sub get_term_name {
+    my ($tn, $thr) = @_;
+
+    if ( $tn =~ /^VAR/ ) {
+
+        my ($n,$p) = split(/:/, $tn);
+        if ( exists $thr->{$n} ) {
+            $tn = $thr->{$n}{name};
+        }
+    }
+
+    return $tn;
+}
+
+
 sub build_summation_tree {
     my ($ct) = @_;
     my %ct = %{$ct};
@@ -633,8 +648,11 @@ sub build_summation_tree {
     }
 
     # try to put the terms in a neat consistent order
-    my @sorted_terms =  sort { length($a) <=> length($b) || $a cmp $b || $collected_terms{$a} <=> $collected_terms{$b} } 
-                        keys %collected_terms;
+    my @sorted_terms =  sort {  length(get_term_name($a, \%trees)) <=> length(get_term_name($b, \%trees)) || 
+                                get_term_name($a, \%trees) cmp get_term_name($b, \%trees) || 
+                                $collected_terms{$a} <=> $collected_terms{$b} } 
+                                keys %collected_terms;
+
     my @negative = grep { $_ <= 0 } @coeffs;
     my $all_neg = 0;
     if ( scalar(@negative) == scalar(@sorted_terms) ) {
