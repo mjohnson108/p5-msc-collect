@@ -750,12 +750,12 @@ sub prepare {
     elsif ( $t->term_type() == T_CONSTANT ) {
         # convert (non-integer decimal) constants into rational numbers where possible
         my $val = $t->value();
-        if ( $val eq int($val) ) {
+        if ( ($val eq int($val)) || length($t->special()) ) {
             $return_t = $t->new();
         }
         else {
             my (undef, $frac) = split(/\./, $val);
-            if ( defined($frac) && (length($frac)>=1) ) {
+            if ( defined($frac) && (length($frac)>=1) && (length($frac)<10) ) {
                 my $mult = 10**length($frac);
                 # this will (possibly) be cancelled down later 
                 $return_t = Math::Symbolic::Operator->new( '/', Math::Symbolic::Constant->new($val*$mult), Math::Symbolic::Constant->new($mult) )
