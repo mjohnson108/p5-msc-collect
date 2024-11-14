@@ -63,6 +63,11 @@ use Carp;
     print "Output: ", parse_from_string($t7)->to_collected()->to_string(), "\n";
     # Output: (b - a) / ((3 * (a ^ 2)) - (3 * (b ^ 2)))
 
+    my $t8 = "(x+y+z)/2";
+    my @terms = parse_from_string($t8)->to_terms();
+    print "Terms: (", join("), (", @terms), ")\n";
+    # Terms: (x / 2), (y / 2), (z / 2)
+
 =head1 DESCRIPTION
 
 Provides "to_collected()" and "to_terms()" through the Math::Symbolic module extension class. "to_collected" performs the following operations on the inputted Math::Symbolic tree:-
@@ -85,7 +90,8 @@ Provides "to_collected()" and "to_terms()" through the Math::Symbolic module ext
 
 The result is often a more concise expression. However, because it does not (yet) factor the expression, the result is not always the simplest representation. Hence it is not offered as a simplify().
 
-"to_terms()" uses "to_collected()" but returns the expression as a list of terms, that is a list of sub-expressions that can be summed to create an expression which is (numerically) equivalent to the original expression.
+"to_terms()" uses "to_collected()" and returns the expression as a list of terms, that is a list of sub-expressions that can be summed to create an expression which is (numerically) equivalent to the original expression.
+
 =cut
 
 sub to_collected {
@@ -1476,8 +1482,6 @@ sub create_product_tree {
     return Math::Symbolic::Operator->new( '/', $ntp1, $ntp2 );
 }
 
-
-
 =head1 SEE ALSO
 
 L<Math::Symbolic>
@@ -1503,7 +1507,6 @@ This software is copyright (c) 2024 by Matt Johnson.
 
 This is free software; you can redistribute it and/or modify it under
 the same terms as the Perl 5 programming language system itself.
-
 
 =cut
 
