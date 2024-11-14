@@ -277,6 +277,7 @@ sub cancel_down {
         # see if there are any common variables we can cancel
         # count up the number of unique vars within numerator and denominator
         my %c_vars;
+        my %c_pow;
         foreach my $e (\%n_terms, \%d_terms) {
             foreach my $key (keys %{$e}) {
                 my @v1 = split(/,/, $key);
@@ -284,6 +285,14 @@ sub cancel_down {
                     my ($v, $c) = split(/:/, $v2);
                     if ( ($v =~ /^CONST/) or ($v =~ /^VAR/) ) {
                         $c_vars{$v}++;
+                        if ( exists $c_pow{$v} ) {
+                            if ( $c_pow{$v} > $c ) {
+                                $c_pow{$v} = $c;
+                            }
+                        }
+                        else {
+                            $c_pow{$v} = $c;
+                        }
                     }
                 }
             }            
@@ -293,38 +302,15 @@ sub cancel_down {
         my @all_terms;
         while ( my ($v, $c) = each %c_vars ) {
             if ( $c == (scalar(keys %n_terms)+scalar(keys %d_terms)) ) {
-                push @all_terms, $v
-                    unless ($v =~ /^VAR/) && (scalar(%d_terms) == 1);   # don't get rid of all instances of a variable from the denominator
+                push @all_terms, $v;
             }
         }
 
         while ( my $v = pop @all_terms ) {
             my %n_ct_new;
             my %d_ct_new;
-    
-            # cancel from numerator
-            while ( my ($t, $c) = each %n_terms ) {
-                my @v1 = split(/,/, $t);
-                my @nt;
-                foreach my $v2 (@v1) {
-                    my ($vv, $cc) = split(/:/, $v2);
-                    if ($vv eq $v) {
-                        $cc--;
-                        if ($cc > 0) {
-                            push @nt, "$vv:$cc";
-                        }
-                        elsif ( scalar(@v1) == 1 ) {  
-                            $n_acc = $c;
-                        } 
-                    }
-                    else {
-                        push @nt, $v2;
-                    }
-                }
-                if ( scalar(@nt) ) {
-                    $n_ct_new{join(",", @nt)} = $c;              
-                }
-            }
+
+            $did_some_cancellation = 0;
 
             # cancel from denominator
             while ( my ($t, $c) = each %d_terms ) {
@@ -333,13 +319,25 @@ sub cancel_down {
                 foreach my $v2 (@v1) {
                     my ($vv, $cc) = split(/:/, $v2);
                     if ($vv eq $v) {
-                        $cc--;
-                        if ($cc > 0) {
-                            push @nt, "$vv:$cc";
+                        if ( (scalar(%d_terms) == 1) && ($cc == 1) ) {                        
+                            # refuse to cancel all instances of a variable from the denominator
+                            push @nt, $v2;
                         }
-                        elsif ( scalar(@v1) == 1 ) {  
-                            $d_acc = $c;
-                        } 
+                        else {
+                            my $c_sub = $c_pow{$v};
+                            if ( $cc < $c_sub ) {
+                                croak( "cancel_down: Variable $v has index $cc but want to cancel $c_sub" );
+                            }                            
+                            $cc -= $c_sub;
+                            if ($cc > 0) {
+                                push @nt, "$vv:$cc";
+                                $did_some_cancellation = 1;
+                            }
+                            elsif ( scalar(@v1) == 1 ) {  
+                                $d_acc = $c;
+                                $did_some_cancellation = 1;
+                            } 
+                        }
                     }
                     else {
                         push @nt, $v2;
@@ -350,10 +348,40 @@ sub cancel_down {
                 }
             }
 
-            %n_terms = %n_ct_new;
-            %d_terms = %d_ct_new;
-           
-            $did_some_cancellation = 1;
+            if ( $did_some_cancellation ) {
+        
+                # cancel from numerator
+                while ( my ($t, $c) = each %n_terms ) {
+                    my @v1 = split(/,/, $t);
+                    my @nt;
+                    foreach my $v2 (@v1) {
+                        my ($vv, $cc) = split(/:/, $v2);
+                        if ($vv eq $v) {
+                            my $c_sub = $c_pow{$v};
+                            if ( $cc < $c_sub ) {
+                                croak( "cancel_down: Variable $v has index $cc but want to cancel $c_sub" );
+                            }                            
+                            $cc -= $c_sub;
+                            if ($cc > 0) {
+                                push @nt, "$vv:$cc";
+                            }
+                            elsif ( scalar(@v1) == 1 ) {  
+                                $n_acc = $c;
+                            } 
+                        }
+                        else {
+                            push @nt, $v2;
+                        }
+                    }
+                    if ( scalar(@nt) ) {
+                        $n_ct_new{join(",", @nt)} = $c;              
+                    }
+                }
+               
+                %n_terms = %n_ct_new;
+                %d_terms = %d_ct_new;
+            }               
+
         }
     }
 
@@ -986,10 +1014,29 @@ sub prepare {
                 # Division by unity found, removing division
                 $return_t = $op1;
             }
-            elsif ( ($op1->term_type() == T_CONSTANT) && ($op1->special() eq '') && ($op2->term_type() == T_CONSTANT) && ($op2->special() eq '') &&
-                    (($op1->value()/$op2->value()) eq int($op1->value()/$op2->value())) ) {
-                # Denominator evenly divides into numerator, removing division
-                $return_t = Math::Symbolic::Constant->new($op1->value()/$op2->value())
+            elsif ( ($op1->term_type() == T_CONSTANT) && ($op1->special() eq '') && ($op2->term_type() == T_CONSTANT) && ($op2->special() eq '') ) {
+                if ( ($op1->value()/$op2->value()) eq int($op1->value()/$op2->value()) ) {
+                    # Denominator evenly divides into numerator, removing division
+                    $return_t = Math::Symbolic::Constant->new($op1->value()/$op2->value())
+                }
+                elsif ( ($op1->value() == int($op1->value())) && ($op2->value() == int($op2->value())) ) {
+                    # Cancel down constant fraction
+                    my $n = abs($op1->value());
+                    my $d = abs($op2->value());
+                    my $min = ($n < $d ? $n : $d);
+                    my $GCF = 1;
+                    DIV_GCF: foreach my $div (reverse(2..$min)) {
+                        if ( (($n % $div) == 0) && (($d % $div) == 0) ) {
+                            $GCF = $div;
+                            last DIV_GCF;
+                        } 
+                    }
+                    $return_t = Math::Symbolic::Operator->new('/', Math::Symbolic::Constant->new($op1->value()/$GCF), Math::Symbolic::Constant->new($op2->value()/$GCF));
+                }
+                else {
+                    # Passing through division
+                    $return_t = Math::Symbolic::Operator->new('/', $op1, $op2);
+                }
             }
             elsif ( ($op2->term_type() == T_CONSTANT) && ($op2->special() eq '') && ($op2->value() < 0) ) {
                 # Pulling negative out of denominator
