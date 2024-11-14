@@ -99,7 +99,8 @@ sub to_collected {
     if (!defined $t2) {
         return undef;
     }
-    elsif ( !$t1->test_num_equiv($t2) ) {
+    # use small upper and lower limits on the equivalence test to help prevent numerical errors creeping in
+    elsif ( !$t1->test_num_equiv($t2, upper => 2, lower => -2) ) {
         return undef;
     }
    
