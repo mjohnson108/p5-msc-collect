@@ -683,7 +683,7 @@ sub get_term_name {
 
         my ($n,$p) = split(/:/, $tn);
         if ( exists $thr->{$n} ) {
-            $tn = $thr->{$n}{name};
+            $tn = $thr->{$n}{name} . $p;
         }
     }
 
