@@ -15,18 +15,18 @@ Math::Symbolic::Custom::Collect - Collect up Math::Symbolic expressions
 
 =head1 VERSION
 
-Version 0.03
+Version 0.1
 
 =cut
 
-our $VERSION = '0.03';
+our $VERSION = '0.1';
 
 use Math::Symbolic qw(:all);
 use Math::Symbolic::Custom::Base;
 
 BEGIN {*import = \&Math::Symbolic::Custom::Base::aggregate_import}
    
-our $Aggregate_Export = [qw/to_collected/];
+our $Aggregate_Export = [qw/to_collected to_terms/];
 
 use Carp;
 
@@ -65,7 +65,7 @@ use Carp;
 
 =head1 DESCRIPTION
 
-Provides "to_collected()" through the Math::Symbolic module extension class. "to_collected" performs the following operations on the inputted Math::Symbolic tree:-
+Provides "to_collected()" and "to_terms()" through the Math::Symbolic module extension class. "to_collected" performs the following operations on the inputted Math::Symbolic tree:-
 
 =over
 
@@ -85,6 +85,7 @@ Provides "to_collected()" through the Math::Symbolic module extension class. "to
 
 The result is often a more concise expression. However, because it does not (yet) factor the expression, the result is not always the simplest representation. Hence it is not offered as a simplify().
 
+"to_terms()" uses "to_collected()" but returns the expression as a list of terms, that is a list of sub-expressions that can be summed to create an expression which is (numerically) equivalent to the original expression.
 =cut
 
 sub to_collected {
@@ -152,6 +153,64 @@ sub to_collected {
     }
 }
 
+#### to_terms()
+# Return an array of Math::Symbolic expressions which can be added to recreate an expression 
+# numerically equivalent to the passed expression.
+# Called in a scalar context, returns the number of terms. 
+
+sub to_terms {
+    my ($t1) = @_;
+
+    return undef unless defined wantarray;
+
+    my ($t2, $n_hr, $d_hr) = to_collected($t1);
+
+    return undef unless defined $t2;
+
+    my @terms;
+    if ( exists($d_hr->{terms}) && exists($n_hr->{terms}) ) {
+
+        my $terms = $n_hr->{terms};
+        my $trees = $n_hr->{trees};
+
+        my $denominator = build_summation_tree($d_hr);
+        
+        my $const_acc = $terms->{constant_accumulator};
+        $const_acc = 0 if not defined $const_acc;
+        push @terms, Math::Symbolic::Constant->new($const_acc) / $denominator if $const_acc != 0;
+        delete $terms->{constant_accumulator};
+        while ( my ($k, $v) = each %{$terms} ) {
+            my $numerator = build_summation_tree({ terms => { constant_accumulator => 0, $k => $v }, trees => $trees });
+            my $expr = $numerator / $denominator;
+            my $expr2 = to_collected($expr);
+            $expr = $expr2 if defined $expr2;
+            push @terms, $expr;
+        }        
+
+    }
+    elsif ( exists $n_hr->{terms} ) {
+
+        my $terms = $n_hr->{terms};
+        my $trees = $n_hr->{trees};
+
+        my $const_acc = $terms->{constant_accumulator};
+        $const_acc = 0 if not defined $const_acc;
+        push @terms, Math::Symbolic::Constant->new($const_acc) if $const_acc != 0;
+        delete $terms->{constant_accumulator};
+        while ( my ($k, $v) = each %{$terms} ) {
+            push @terms, build_summation_tree({ terms => { constant_accumulator => 0, $k => $v }, trees => $trees });
+        }
+    }
+    else {
+        push @terms, $t2;
+    }
+
+    if ( scalar(@terms) == 0 ) {
+        push @terms, Math::Symbolic::Constant->new(0);
+    }
+
+    return wantarray ? @terms : scalar(@terms);
+}
 
 #### cancel_down. 
 # Checks numerator and denominator expressions for constants and variables which can cancel.
