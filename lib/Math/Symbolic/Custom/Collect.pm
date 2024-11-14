@@ -1113,6 +1113,13 @@ sub prepare {
                 my $numerator = Math::Symbolic::Operator->new( '*', $op2->op1(), $op1 );
                 $return_t = Math::Symbolic::Operator->new( '/', prepare($numerator, $d), $op2->op2() );   
             }
+            elsif (     ($op1->term_type() == T_OPERATOR) && ($op1->type() == B_EXP) &&
+                        ($op2->term_type() == T_OPERATOR) && ($op2->type() == B_EXP) &&
+                        $op1->op1()->is_identical($op2->op1())
+                        ) {
+                # x^m * x^n = x^(m+n)
+                $return_t = Math::Symbolic::Operator->new( '^', $op1->op1(), prepare(Math::Symbolic::Operator->new('+', $op1->op2(), $op2->op2())) );
+            }
             elsif (     (($op1->term_type() == T_OPERATOR) && (($op1->type() == B_SUM) || ($op1->type() == B_DIFFERENCE))) || 
                         (($op2->term_type() == T_OPERATOR) && (($op2->type() == B_SUM) || ($op2->type() == B_DIFFERENCE))) ) {
                 # Attempting to multiply out brackets
@@ -1180,14 +1187,20 @@ sub prepare {
                 $return_t = Math::Symbolic::Operator->new('*', $op1, $op2);
             }
         }
-        elsif ( ($t->type() == B_EXP) && ($op2->term_type() == T_CONSTANT) ) {          
-            my $val = $op2->value();
-            if ( ($val eq int($val)) && ($val > 0) ) {
-                if ( $val == 1 ) {
+        elsif ( $t->type() == B_EXP ) {
+
+            if ( $op2->term_type() == T_CONSTANT ) {         
+     
+                my $val = $op2->value();
+
+                if ( $val == 0 ) {
+                    $return_t = Math::Symbolic::Constant->new(1);
+                }   
+                elsif ( $val == 1 ) {
                     # Found expression^1. Return the expression
                     $return_t = $op1;
                 }
-                else {
+                elsif ( ($val > 1) && ($val eq int($val)) ) {
                     # Found constant positive integer power. Removing exponent through multiplication                    
                     my @product_list = ($op1) x $val;
                     my $ntp = shift @product_list;
@@ -1197,7 +1210,24 @@ sub prepare {
                     }
                     $return_t = prepare($ntp, $d);
                 }
-            }               
+                elsif ( $val == -1 ) {
+                    $return_t = prepare( Math::Symbolic::Operator->new('/', Math::Symbolic::Constant->new(1), $op1) );
+                }
+                elsif ( $val < -1 ) {
+                    $return_t = prepare( Math::Symbolic::Operator->new( '/', 
+                                            Math::Symbolic::Constant->new(1), 
+                                            Math::Symbolic::Operator->new('^', $op1, Math::Symbolic::Constant->new(abs($val))) 
+                                        ));
+                }  
+                else {
+                    # Passing through exponentiation
+                    $return_t = Math::Symbolic::Operator->new('^', $op1, $op2 );
+                }
+            }
+            elsif ( ($op1->term_type() == T_OPERATOR) && ($op1->type() == B_EXP) ) {
+                # (x^m)^n = x^(m*n)
+                $return_t = prepare( Math::Symbolic::Operator->new('^', $op1->op1(), Math::Symbolic::Operator->new('*', $op1->op2(), $op2)));
+            }
             else {
                 # Passing through exponentiation
                 $return_t = Math::Symbolic::Operator->new('^', $op1, $op2 );
