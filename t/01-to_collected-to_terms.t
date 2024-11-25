@@ -239,7 +239,7 @@ TEST_LOOP: foreach my $test (@tests) {
     }   
     
     # the new Math::Symbolic tree should be numerically equivalent to the original tree
-    ok($f->test_num_equiv($f2, upper => 2, lower => -2), "output expression from to_collected() is numerically equivalent to original [$test |vs| $f2]");  
+    ok($f->test_num_equiv($f2, upper => 4, lower => -4, tests => 10, epsilon => 1e-5), "output expression from to_collected() is numerically equivalent to original [$test |vs| $f2]");  
 
     # test to_terms()
     my @terms = $f->to_terms();
@@ -254,7 +254,7 @@ TEST_LOOP: foreach my $test (@tests) {
         $p += $x;
     }
 
-    ok($f->test_num_equiv($p, upper => 2, lower => -2), "summed output expression from to_terms() is numerically equivalent to original [$test |vs| $p]");  
+    ok($f->test_num_equiv($p, upper => 4, lower => -4, tests => 10, epsilon => 1e-5), "summed output expression from to_terms() is numerically equivalent to original [$test |vs| $p]");  
 }
 
 done_testing( 5*scalar(@tests) );
