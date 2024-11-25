@@ -68,6 +68,11 @@ use Carp;
     print "Terms: (", join("), (", @terms), ")\n";
     # Terms: (x / 2), (y / 2), (z / 2)
 
+    $Math::Symbolic::Custom::Collect::COMPLEX_VAR = 'j';   # default is 'i'
+    my $t9 = "j*(3-7*j)*(2-j)";
+    print "Output: ", parse_from_string($t9)->to_collected()->to_string(), "\n";
+    # Output: 17 - j
+
 =head1 DESCRIPTION
 
 Provides "to_collected()" and "to_terms()" through the Math::Symbolic module extension class. "to_collected" performs the following operations on the inputted Math::Symbolic tree:-
@@ -91,6 +96,29 @@ Provides "to_collected()" and "to_terms()" through the Math::Symbolic module ext
 The result is often a more concise expression. However, because it does not (yet) factor the expression, the result is not always the simplest representation. Hence it is not offered as a simplify().
 
 "to_terms()" uses "to_collected()" and returns the expression as a list of terms, that is a list of sub-expressions that can be summed to create an expression which is (numerically) equivalent to the original expression.
+
+=head1 COMPLEX NUMBERS
+
+From version 0.2, there is some support for complex numbers. The symbol in $Math::Symbolic::Custom::Collect::COMPLEX_VAR (set to 'i' by default) is considered by the module to be the symbol for the imaginary unit and treated as such when collecting up the expression. It is a Math::Symbolic variable to permit easy conversion to Math::Complex numbers using the value() method, for example:
+
+    use strict;
+    use Math::Symbolic qw(:all);
+    use Math::Symbolic::Custom::Collect;
+    use Math::Complex;
+
+    my $t = "x+sqrt(-100)+y*i";
+    my $M_S = parse_from_string($t)->to_collected();
+    print "$M_S\n"; # ((10 * i) + x) + (i * y)
+
+    # we want some kind of actual number from this expression
+    my $M_C = $M_S->value( 
+                    'x' => 2,
+                    'y' => 3, 
+                    'i' => i,  # glue Math::Symbolic and Math::Complex 
+                    );
+
+    # $M_C is a Math::Complex number
+    print "$M_C\n"; # 2+13i
 
 =cut
 
