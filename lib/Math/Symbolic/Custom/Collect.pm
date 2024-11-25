@@ -94,6 +94,10 @@ The result is often a more concise expression. However, because it does not (yet
 
 =cut
 
+# this symbol represents the solution to x^2 = -1. If for some reason 'i' is being used as a variable for a different 
+# purpose in the expression, this should be changed (e.g. to 'j'). Otherwise things will get very confusing
+our $COMPLEX_VAR = "i";     
+
 sub to_collected {
     my ($t1) = @_;
 
@@ -303,7 +307,10 @@ sub cancel_down {
         # if a variable exists in each term, perhaps we can cancel it
         my @all_terms;
         while ( my ($v, $c) = each %c_vars ) {
-            if ( $c == (scalar(keys %n_terms)+scalar(keys %d_terms)) ) {
+            if (    ($c == (scalar(keys %n_terms)+scalar(keys %d_terms))) && 
+                    ($n_funcs{$v}->{name} ne $COMPLEX_VAR )     
+                    ) {
+
                 push @all_terms, $v;
             }
         }
@@ -698,6 +705,67 @@ sub collect_terms {
         }
     }    
 
+    # Post-process for complex numbers
+    # see if expression contains the designated complex variable.
+    my $contains_complex = 0;
+    my $complex_name;
+    GET_COMPLEX: foreach my $k (grep { /^VAR/ } keys %trees) {
+        if ( $trees{$k}->{name} eq $COMPLEX_VAR ) {
+            $contains_complex = 1;
+            $complex_name = $k;
+            last GET_COMPLEX;
+        }
+    }
+
+    if ( $contains_complex ) {
+
+        my %c_ct_new;
+
+        while ( my ($t, $c) = each %{$collected_terms{terms}} ) {
+            my @v1 = split(/,/, $t);
+            my @nt;
+            foreach my $v2 (@v1) {
+                my ($vv, $cc) = split(/:/, $v2);
+                if (($vv eq $complex_name) && ($cc > 1) && ($cc == int($cc))) {
+                    # various results from different powers of the imaginary unit
+                    my $pmod = $cc % 4;
+                    if ( $pmod == 0 ) {
+                        if ( scalar(@v1) == 1 ) {
+                            $accumulator += $c;
+                        }
+                    }
+                    elsif ( $pmod == 1 ) {
+                        push @nt, "$vv:1";
+                    }
+                    elsif ( $pmod == 2 ) {
+                        $c *= -1;
+                        if ( scalar(@v1) == 1 ) {
+                            $accumulator += $c;
+                        }
+                    }
+                    elsif ( $pmod == 3 ) {
+                        $c *= -1;
+                        push @nt, "$vv:1";
+                    }
+                }
+                else {
+                    push @nt, $v2;
+                }
+            }
+            if ( scalar(@nt) ) {
+                my $nk = join(",", @nt);
+                if ( exists $c_ct_new{$nk} ) {
+                    $c_ct_new{$nk} += $c;
+                }
+                else {
+                    $c_ct_new{$nk} = $c;
+                }
+            }
+        }
+
+         $collected_terms{terms} = \%c_ct_new;
+    }
+
     # put the accumulator into the data structure
     $collected_terms{terms}{constant_accumulator} = $accumulator;
     # and the functions 
@@ -792,13 +860,7 @@ sub build_summation_tree {
                 }
             }
             else {
-                 die "build_summation_tree: Found something without an associated Math::Symbolic object!: $var";
-#                if ( $pow == 1 ) {
-#                    push @product_list, Math::Symbolic::Variable->new($var);
-#                }
-#                else {
-#                    push @product_list, Math::Symbolic::Operator->new('^', Math::Symbolic::Variable->new($var), Math::Symbolic::Constant->new($pow));
-#                }
+                 croak( "build_summation_tree: Found something without an associated Math::Symbolic object!: $var" );
             }
         }
 
