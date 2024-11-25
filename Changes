@@ -1,5 +1,11 @@
 Revision history for Math-Symbolic-Custom-Collect
 
+0.2     Mon Nov 25 10:00 2024
+
+        - Added some initial complex number support
+        - Improved cancelling down
+        - Improved handling of exponents
+
 0.1     Thu Nov 14 11:12 2024
 
         - Added to_terms()

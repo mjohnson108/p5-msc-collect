@@ -335,7 +335,7 @@ sub cancel_down {
                         else {
                             my $c_sub = $c_pow{$v};
                             if ( $cc < $c_sub ) {
-                                croak( "cancel_down: Variable $v has index $cc but want to cancel $c_sub" );
+                                croak "cancel_down: Variable $v has index $cc but want to cancel $c_sub";
                             }                            
                             $cc -= $c_sub;
                             if ($cc > 0) {
@@ -368,7 +368,7 @@ sub cancel_down {
                         if ($vv eq $v) {
                             my $c_sub = $c_pow{$v};
                             if ( $cc < $c_sub ) {
-                                croak( "cancel_down: Variable $v has index $cc but want to cancel $c_sub" );
+                                croak "cancel_down: Variable $v has index $cc but want to cancel $c_sub";
                             }                            
                             $cc -= $c_sub;
                             if ($cc > 0) {
@@ -860,7 +860,7 @@ sub build_summation_tree {
                 }
             }
             else {
-                 croak( "build_summation_tree: Found something without an associated Math::Symbolic object!: $var" );
+                 croak "build_summation_tree: Found something without an associated Math::Symbolic object!: $var";
             }
         }
 
@@ -1189,7 +1189,7 @@ sub prepare {
                         $op1->op1()->is_identical($op2->op1())
                         ) {
                 # x^m * x^n = x^(m+n)
-                $return_t = Math::Symbolic::Operator->new( '^', $op1->op1(), prepare(Math::Symbolic::Operator->new('+', $op1->op2(), $op2->op2())) );
+                $return_t = Math::Symbolic::Operator->new( '^', $op1->op1(), prepare(Math::Symbolic::Operator->new('+', $op1->op2(), $op2->op2()), $d) );
             }
             elsif (     (($op1->term_type() == T_OPERATOR) && (($op1->type() == B_SUM) || ($op1->type() == B_DIFFERENCE))) || 
                         (($op2->term_type() == T_OPERATOR) && (($op2->type() == B_SUM) || ($op2->type() == B_DIFFERENCE))) ) {
@@ -1260,7 +1260,10 @@ sub prepare {
         }
         elsif ( $t->type() == B_EXP ) {
 
-            if ( $op2->term_type() == T_CONSTANT ) {         
+            if ( ($op1->term_type() == T_OPERATOR) && ($op1->type() == B_EXP) ) {
+                $return_t = prepare( Math::Symbolic::Operator->new('^', $op1->op1(), Math::Symbolic::Operator->new('*', $op1->op2(), $op2)), $d);
+            }
+            elsif ( ($op2->term_type() == T_CONSTANT) && ($op2->special() eq '') ) {         
      
                 my $val = $op2->value();
 
@@ -1282,26 +1285,64 @@ sub prepare {
                     $return_t = prepare($ntp, $d);
                 }
                 elsif ( $val == -1 ) {
-                    $return_t = prepare( Math::Symbolic::Operator->new('/', Math::Symbolic::Constant->new(1), $op1) );
+                    # remove negative index
+                    $return_t = prepare( Math::Symbolic::Operator->new('/', Math::Symbolic::Constant->new(1), $op1), $d );
                 }
                 elsif ( $val < -1 ) {
                     $return_t = prepare( Math::Symbolic::Operator->new( '/', 
                                             Math::Symbolic::Constant->new(1), 
                                             Math::Symbolic::Operator->new('^', $op1, Math::Symbolic::Constant->new(abs($val))) 
-                                        ));
+                                        ), $d);
                 }  
                 else {
                     # Passing through exponentiation
-                    $return_t = Math::Symbolic::Operator->new('^', $op1, $op2 );
+                    my $op1_col;
+                    if ( $op1->term_type() == T_OPERATOR ) {
+                        $op1_col = $op1->to_collected(); # try to collect up the subexpression
+                    }
+                    if ( defined($op1_col) && !$op1->is_identical($op1_col) ) {
+                        $op1 = $op1_col;
+                    }
+
+                    $return_t = Math::Symbolic::Operator->new('^', $op1, $op2);
                 }
             }
-            elsif ( ($op1->term_type() == T_OPERATOR) && ($op1->type() == B_EXP) ) {
-                # (x^m)^n = x^(m*n)
-                $return_t = prepare( Math::Symbolic::Operator->new('^', $op1->op1(), Math::Symbolic::Operator->new('*', $op1->op2(), $op2)));
+            elsif ( ($op1->term_type() == T_CONSTANT) && ($op1->special() eq '') &&
+                    ($op2->term_type() == T_OPERATOR) && ($op2->type() == B_DIVISION) &&
+                    ($op2->op1()->term_type == T_CONSTANT) && ($op2->op1()->value() == 1) &&
+                    ($op2->op2()->term_type == T_CONSTANT) && ($op2->op2()->value() == 2)
+                    ) {                
+
+                if ( $op1->value() < 0 ) {                    
+                    $return_t = Math::Symbolic::Operator->new('*',  Math::Symbolic::Variable->new($COMPLEX_VAR), 
+                                                                    prepare(Math::Symbolic::Operator->new('^', Math::Symbolic::Constant->new(abs($op1->value())), $op2), $d));
+                }
+                elsif ( $op1->value() == 0 ) {
+                    $return_t = Math::Symbolic::Constant->new(0);
+                }
+                else {
+                    # sqrt of a positive constant.
+                    my $sqrt = sqrt($op1->value());
+                    if ( $sqrt == int($sqrt) ) {
+                        $return_t = Math::Symbolic::Constant->new($sqrt);
+                    }
+                    else {
+                        # Passing through exponentiation
+                        $return_t = Math::Symbolic::Operator->new('^', $op1, $op2 );
+                    }
+                }
             }
             else {
                 # Passing through exponentiation
-                $return_t = Math::Symbolic::Operator->new('^', $op1, $op2 );
+                my $op1_col;
+                if ( $op1->term_type() == T_OPERATOR ) {
+                    $op1_col = $op1->to_collected();
+                }
+                if ( defined($op1_col) && !$op1->is_identical($op1_col) ) {
+                    $op1 = $op1_col;
+                }
+
+                $return_t = Math::Symbolic::Operator->new('^', $op1, $op2);
             }
         }
         else {
