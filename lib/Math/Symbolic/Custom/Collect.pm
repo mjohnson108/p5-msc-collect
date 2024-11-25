@@ -15,11 +15,11 @@ Math::Symbolic::Custom::Collect - Collect up Math::Symbolic expressions
 
 =head1 VERSION
 
-Version 0.1
+Version 0.2
 
 =cut
 
-our $VERSION = '0.1';
+our $VERSION = '0.2';
 
 use Math::Symbolic qw(:all);
 use Math::Symbolic::Custom::Base;
@@ -105,11 +105,7 @@ sub to_collected {
     if (!defined $t2) {
         return undef;
     }
-    # use small upper and lower limits on the equivalence test to help prevent numerical errors creeping in
-    elsif ( !$t1->test_num_equiv($t2, upper => 2, lower => -2) ) {
-        return undef;
-    }
-   
+    
     # 2. collect like terms
     if ( ($t2->term_type() == T_OPERATOR) && ($t2->type() == B_DIVISION) ) {
     
