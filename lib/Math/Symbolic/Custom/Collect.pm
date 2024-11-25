@@ -842,6 +842,21 @@ sub build_summation_tree {
 
 ###########################
 
+sub get_frac_GCF {
+    my ($n, $d) = @_;
+
+    my $min = ($n < $d ? $n : $d);
+    my $GCF = 1;
+    DIV_GCF: foreach my $div (reverse(2..$min)) {
+        if ( (($n % $div) == 0) && (($d % $div) == 0) ) {
+            $GCF = $div;
+            last DIV_GCF;
+        } 
+    }
+
+    return $GCF;
+}
+
 sub prepare {
     my ($t, $d) = @_;
 
@@ -873,8 +888,9 @@ sub prepare {
             my (undef, $frac) = split(/\./, $val);
             if ( defined($frac) && (length($frac)>=1) && (length($frac)<10) ) {
                 my $mult = 10**length($frac);
-                # this will (possibly) be cancelled down later 
-                $return_t = Math::Symbolic::Operator->new( '/', Math::Symbolic::Constant->new($val*$mult), Math::Symbolic::Constant->new($mult) )
+                my $n = $val*$mult;
+                my $GCF = get_frac_GCF($n, $mult);
+                $return_t = Math::Symbolic::Operator->new( '/', Math::Symbolic::Constant->new($n/$GCF), Math::Symbolic::Constant->new($mult/$GCF) );
             }
             else {
                 $return_t = $t->new();
@@ -1023,16 +1039,7 @@ sub prepare {
                 }
                 elsif ( ($op1->value() == int($op1->value())) && ($op2->value() == int($op2->value())) ) {
                     # Cancel down constant fraction
-                    my $n = abs($op1->value());
-                    my $d = abs($op2->value());
-                    my $min = ($n < $d ? $n : $d);
-                    my $GCF = 1;
-                    DIV_GCF: foreach my $div (reverse(2..$min)) {
-                        if ( (($n % $div) == 0) && (($d % $div) == 0) ) {
-                            $GCF = $div;
-                            last DIV_GCF;
-                        } 
-                    }
+                    my $GCF = get_frac_GCF( abs($op1->value()), abs($op2->value()) );
                     $return_t = Math::Symbolic::Operator->new('/', Math::Symbolic::Constant->new($op1->value()/$GCF), Math::Symbolic::Constant->new($op2->value()/$GCF));
                 }
                 else {
