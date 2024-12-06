@@ -15,11 +15,11 @@ Math::Symbolic::Custom::Collect - Collect up Math::Symbolic expressions
 
 =head1 VERSION
 
-Version 0.2
+Version 0.21
 
 =cut
 
-our $VERSION = '0.2';
+our $VERSION = '0.21';
 
 use Math::Symbolic qw(:all);
 use Math::Symbolic::Custom::Base;
@@ -419,6 +419,15 @@ sub cancel_down {
                 %d_terms = %d_ct_new;
             }               
 
+        }
+    }
+
+    if ( (scalar(keys %n_terms) == 0) && (scalar(keys %d_terms) == 0) ) {
+        # do some tidying up of constant fractions with negative denominators
+        if ( $d_acc < 0 ) {
+            $n_acc *= -1;
+            $d_acc = abs($d_acc);
+            $did_some_cancellation = 1;
         }
     }
 
