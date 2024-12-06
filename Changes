@@ -1,5 +1,10 @@
 Revision history for Math-Symbolic-Custom-Collect
 
+0.21    Fri Dec 06 20:00 2024
+
+        - Updated tests
+        - Patched issue with denominator sign
+
 0.2     Mon Nov 25 10:00 2024
 
         - Added some initial complex number support
