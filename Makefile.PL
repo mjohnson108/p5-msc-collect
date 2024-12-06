@@ -14,7 +14,7 @@ my %WriteMakefileArgs = (
         'ExtUtils::MakeMaker' => '0',
     },
     TEST_REQUIRES => {
-        'Test::More' => '0',
+        'Test::Simple' => '0',
     },
     PREREQ_PM => {
         'Math::Symbolic'    =>  '0.613',
