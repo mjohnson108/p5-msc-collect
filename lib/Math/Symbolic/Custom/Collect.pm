@@ -37,8 +37,13 @@ Math::Symbolic::Custom::Collect->export_to_level(1, undef, 'symbolic_complex');
 
 use Carp;
 
-=head1 SYNOPSIS
+=head1 DESCRIPTION
 
+Provides some methods for working with Math::Symbolic expressions through the Math::Symbolic module extension class. 
+
+=head1 EXAMPLES
+
+    use strict;
     use Math::Symbolic qw(:all);
     use Math::Symbolic::Custom::Collect;
 
@@ -84,9 +89,9 @@ use Carp;
     print "Output: ", parse_from_string($t10)->to_derivative()->to_string(), "\n";
     # Output: (18 * x) - 6
 
-=head1 DESCRIPTION
-
-Provides some methods for working with Math::Symbolic expressions through the Math::Symbolic module extension class. 
+    my $t11 = "u*t + (1/2)*a*t^2";
+    print "Output: ", parse_from_string($t11)->to_derivative('t')->to_string(), "\n";
+    # Output: u + (a * t)
 
 =cut
 
@@ -114,7 +119,7 @@ our $COMPLEX_VAR = "i";
 
 =back
 
-The result is often a more concise expression. Some examples are in the Synopsis above.
+The result is often a more concise expression. See EXAMPLES above.
 
 =cut
 
@@ -244,11 +249,11 @@ sub to_terms {
 
 =head2 Method to_derivative()
 
-This is a convenience method to differentiate the inputted Math::Symbolic expression. It calls to_collected() before passing the results through to Math::Symbolic::Derivative's partial_derivative(). 
+This is a convenience method to differentiate the inputted Math::Symbolic expression. It calls to_collected() before passing the results through to L<Math::Symbolic::Derivative>'s partial_derivative(). 
 
 Takes one parameter, the variable of differentiation. If not provided it will check if the expression and if there is only one variable it will use that.
 
-Using to_collected() on an expression before differentiating it, often yields better results (because to_collected() reformats the expression). For example, from L<Bug #55842 - Math-Symbolic: Simplification deficiency affects Algorithm::CurveFit|https://rt.cpan.org/Public/Bug/Display.html?id=55842>:-
+Using to_collected() on an expression before differentiating it, often yields better results (because to_collected() reformats the expression, and preparing the expression is half the battle in calculus). For example, from L<Bug #55842 - Math-Symbolic: Simplification deficiency affects Algorithm::CurveFit|https://rt.cpan.org/Public/Bug/Display.html?id=55842>:-
 
     use strict;
     use Math::Symbolic qw(:all);
