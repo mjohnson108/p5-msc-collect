@@ -80,6 +80,10 @@ use Carp;
     print "Output: ", parse_from_string($t9)->to_collected()->to_string(), "\n";
     # Output: 17 - j
 
+    my $t10 = "(3*x - 1)^2";
+    print "Output: ", parse_from_string($t10)->to_derivative()->to_string(), "\n";
+    # Output: (18 * x) - 6
+
 =head1 DESCRIPTION
 
 Provides some methods for working with Math::Symbolic expressions through the Math::Symbolic module extension class. 
@@ -244,7 +248,7 @@ This is a convenience method to differentiate the inputted Math::Symbolic expres
 
 Takes one parameter, the variable of differentiation. If not provided it will check if the expression and if there is only one variable it will use that.
 
-Using to_collected() on an expression before differentiating it, can sometimes yield better results (because to_collected() reformats the expression). For example, from L<Bug #55842 - Math-Symbolic: Simplification deficiency affects Algorithm::CurveFit|https://rt.cpan.org/Public/Bug/Display.html?id=55842>:-
+Using to_collected() on an expression before differentiating it, often yields better results (because to_collected() reformats the expression). For example, from L<Bug #55842 - Math-Symbolic: Simplification deficiency affects Algorithm::CurveFit|https://rt.cpan.org/Public/Bug/Display.html?id=55842>:-
 
     use strict;
     use Math::Symbolic qw(:all);
@@ -254,7 +258,7 @@ Using to_collected() on an expression before differentiating it, can sometimes y
     # the expression from the bug report
     my $f = parse_from_string('A*(x - x_0)^2 + y_0');
 
-    # try differentiating it directly, introduces a pole at x-x_0
+    # try differentiating it directly, introduces a pole at x-x_0=0
     my $f_d1 = partial_derivative($f, 'x_0');
     print "$f_d1\n"; # A * ((2 * ((x - x_0) ^ 2)) * ((1 * (-1)) / (x - x_0)))
 
@@ -1623,6 +1627,16 @@ sub prepare {
 
                 $return_t = Math::Symbolic::Operator->new('^', $op1, $op2);
             }
+        }
+        elsif ( ($t->type() == U_P_DERIVATIVE) || ($t->type() == U_T_DERIVATIVE) ) {
+            # pass through derivative operators, but try collect up the internal expression
+            my $op1_col = $op1->to_collected();
+            if ( defined $op1_col ) {
+                $op1 = $op1_col;
+            }
+            my $op_type = 'partial_derivative';
+            $op_type = 'total_derivative' if $t->type() == U_T_DERIVATIVE;
+            $return_t = Math::Symbolic::Operator->new($op_type, $op1, $op2);
         }
         else {
             my $o = $t->new();
