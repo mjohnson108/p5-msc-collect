@@ -15,7 +15,7 @@ Math::Symbolic::Custom::Collect - Collect up Math::Symbolic expressions
 
 =head1 VERSION
 
-Version 0.3
+Version 0.31
 
 =cut
 
@@ -24,7 +24,7 @@ require Exporter;
 our @ISA = qw(Exporter);
 our @EXPORT = qw/symbolic_complex/;
 
-our $VERSION = '0.3';
+our $VERSION = '0.31';
 
 use Math::Symbolic qw(:all);
 use Math::Symbolic::Derivative qw//;
@@ -879,7 +879,7 @@ sub collect_terms {
                     }
                 }
                 if ( not defined $name ) {
-                    $name = 'CONST' . $tree_num;
+                    $name = 'CONST' . "_" . $e->{object}->{special};
                     $trees{$name} = $e->{object};
                     $tree_num++;
                 }
@@ -895,7 +895,7 @@ sub collect_terms {
                 }
             }
             if ( not defined $name ) {
-                $name = 'VAR' . $tree_num;
+                $name = 'VAR' . "_" . $e->{object}->{name};
                 $trees{$name} = $e->{object};
                 $tree_num++;
             }
@@ -942,7 +942,7 @@ sub collect_terms {
                                 }
                             }
                             if ( not defined $name ) {
-                                $name = 'CONST' . $tree_num;
+                                $name = 'CONST' . "_" . $l->{object}->{special};
                                 $trees{$name} = $l->{object};
                                 $tree_num++;
                             }                            
@@ -958,7 +958,7 @@ sub collect_terms {
                             }
                         }
                         if ( not defined $name ) {
-                            $name = 'VAR' . $tree_num;
+                            $name = 'VAR' . "_" . $l->{object}->{name};
                             $trees{$name} = $l->{object};
                             $tree_num++;
                         }
