@@ -111,7 +111,7 @@ our %VARIABLE_CONSTRAINTS;
 #   );
 
 # if evaluating a constant exponent expression gives a result higher than this, it won't bother and keep the exponent expression
-our $EXP_LIMIT = "1000000"; 
+our $EXP_MAX = "1000000"; 
 
 =head2 Method to_collected()
 
@@ -134,6 +134,27 @@ our $EXP_LIMIT = "1000000";
 =back
 
 The result is often a more concise expression. See EXAMPLES above.
+
+=head3 $EXP_MAX
+
+C<$EXP_MAX> is a package variable which can be used to set a maximum value on evaluating/folding constants 
+with a constant exponent. By default it is set to 1,000,000. 
+
+    use strict;
+    use Math::Symbolic 0.613 qw(:all);
+    use Math::Symbolic::Custom::Collect 0.35;
+
+    # some expression with a power
+    my $expr = parse_from_string("1 + 32^3");
+
+    my $output = $expr->to_collected();
+    print "\$output = $output\n";       # $output = 32769
+
+    # decide to keep it as 32^3
+    $Math::Symbolic::Custom::Collect::EXP_MAX = 1000;
+
+    $output = $expr->to_collected();
+    print "\$output = $output\n";       # $output = 1 + (32 ^ 3)
 
 =cut
 
@@ -806,7 +827,7 @@ sub cancel_down {
         
         my $result = $const ** $exp;
         
-        if ( ($result < $EXP_LIMIT)  ) {
+        if ( ($result < $EXP_MAX)  ) {
             $n_acc += $coeff * $result;
             delete $n_terms{$n_key};
         }
@@ -819,7 +840,7 @@ sub cancel_down {
         
         my $result = $const ** $exp;
         
-        if ( ($result < $EXP_LIMIT)  ) {
+        if ( ($result < $EXP_MAX)  ) {
             $d_acc += $coeff * $result;
             delete $d_terms{$d_key};
         }
@@ -967,7 +988,7 @@ sub get_elements_collect {
     
             my @v_list;
             my $result = $op1->value() ** $exp->value();
-            if ( $result < $EXP_LIMIT ) {
+            if ( $result < $EXP_MAX ) {
                 push @v_list, { type => 'constant', object => Math::Symbolic::Constant->new($result) };
             }
             else {
@@ -1035,7 +1056,7 @@ sub get_product_elements_collect {
                 ($exp->value() > 0) ) {
     
             my $result = $op1->value() ** $exp->value();
-            if ( $result < $EXP_LIMIT ) {
+            if ( $result < $EXP_MAX ) {
                 push @{$l}, { type => 'constant', object => Math::Symbolic::Constant->new($result) };
             }
             else {
