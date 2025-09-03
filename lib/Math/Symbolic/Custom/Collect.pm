@@ -15,7 +15,7 @@ Math::Symbolic::Custom::Collect - Collect up Math::Symbolic expressions
 
 =head1 VERSION
 
-Version 0.40
+Version 0.4
 
 =cut
 
@@ -24,7 +24,7 @@ require Exporter;
 our @ISA = qw(Exporter);
 our @EXPORT = qw/symbolic_complex/;
 
-our $VERSION = '0.40';
+our $VERSION = '0.4';
 
 use Math::Symbolic qw(:all);
 use Math::Symbolic::Derivative qw//;
