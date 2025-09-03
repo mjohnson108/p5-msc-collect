@@ -15,7 +15,7 @@ Math::Symbolic::Custom::Collect - Collect up Math::Symbolic expressions
 
 =head1 VERSION
 
-Version 0.36
+Version 0.40
 
 =cut
 
@@ -24,7 +24,7 @@ require Exporter;
 our @ISA = qw(Exporter);
 our @EXPORT = qw/symbolic_complex/;
 
-our $VERSION = '0.36';
+our $VERSION = '0.40';
 
 use Math::Symbolic qw(:all);
 use Math::Symbolic::Derivative qw//;
@@ -936,6 +936,25 @@ sub get_elements_collect {
         }
         return 1;        
     }
+    elsif ( ($tree->term_type() == T_OPERATOR) && ($tree->type() == B_LOG) ) {
+
+        # walk through log
+        my $tree2 = $tree->new();
+        my ($ctree1) = to_collected($tree->op1());     
+        my ($ctree2) = to_collected($tree->op2());     
+        if ( defined($ctree1) and defined($ctree2) ) {
+        	$tree2->{operands}[0] = $ctree1;
+            $tree2->{operands}[1] = $ctree2;
+        }
+        my $r = { type => 'function', object => $tree2 };
+        if ( $s eq '+' ) {
+            push @{$l}, $r;
+        }
+        elsif ( $s eq '-' ) {
+            push @{$l}, { type => 'products', list => [ { type => 'constant', object => Math::Symbolic::Constant->new(-1) }, $r ] };    
+        }
+        return 1;        
+    }
     elsif ( ($tree->term_type() == T_OPERATOR) && ($tree->type() == B_PRODUCT) ) {
         my @product_elements;
         my $ok1 = get_product_elements_collect(\@product_elements, $tree->op1());
@@ -1026,6 +1045,17 @@ sub get_product_elements_collect {
         my $ctree = to_collected( $tree->op1() );
         if ( defined $ctree ) {
             $tree2->{operands}[0] = $ctree;
+        }
+        push @{$l}, { type => 'function', object => $tree2, };
+        return 1;
+    }
+    elsif ( ($tree->term_type() == T_OPERATOR) && ($tree->type() == B_LOG) ) {
+        my $tree2 = $tree->new();
+        my $ctree1 = to_collected( $tree->op1() );
+        my $ctree2 = to_collected( $tree->op2() );
+        if ( defined($ctree2) and defined($ctree1) ) {
+        	$tree2->{operands}[0] = $ctree1;
+            $tree2->{operands}[1] = $ctree2;
         }
         push @{$l}, { type => 'function', object => $tree2, };
         return 1;
@@ -1808,10 +1838,53 @@ sub prepare {
                 $return_t = Math::Symbolic::Operator->new('*', $op1, $op2);
             }
         }
+	    elsif ( $t->type() == B_LOG ) {
+            
+            if ( ($op2->term_type() == T_CONSTANT) && ($op2->value() == 1) ) {
+			    # Zero rule: log(b,1) = 0
+			    $return_t = Math::Symbolic::Constant->new(0);
+		    }	
+		    elsif ( $op1->term_type() == T_CONSTANT ) {
+			    # detect invalid bases
+			    if ($op1->value() <= 0) {
+				    croak "Base in logarithm is not greater than zero. [$t]";
+			    }
+			    elsif ( $op1->value() == 1 ) {
+				    croak "Base in logarithm equals 1. [$t]";
+			    }
+			    # for the moment, only apply these rules to constant bases
+			    elsif ( ($op2->term_type() == T_CONSTANT) && ($op1->value() == $op2->value()) ) {
+				    # Identity rule: log(b,b) = 1
+				    $return_t = Math::Symbolic::Constant->new(1);
+			    }
+			    elsif (  ($t->op2()->term_type() == T_OPERATOR) && ($t->op2()->type() == B_EXP) ) {
+				    if ( ($t->op2()->op1()->term_type == T_CONSTANT) && ($t->op2()->op1()->value() == $op1->value()) ) {
+					    # Inverse rule: log(b, b^x) = x
+					    $return_t = $op2->op2()->new();
+				    }
+				    else {
+					    # Power rule: log(b, x^n) = n*log(b,x)
+					    my $mul_op1 = prepare($t->op2()->op2(), $d);
+					    my $mul_op2 = prepare($t->op2()->op1(), $d);
+					    $return_t = Math::Symbolic::Operator->new('*', $mul_op1, Math::Symbolic::Operator->new('log', $t->op1()->new(), $mul_op2));
+				    }
+			    }
+		    }
+
+		    unless ( defined $return_t ) {
+			    # Passing through logarithm
+			    $return_t = Math::Symbolic::Operator->new('log', $op1, $op2);
+		    }
+        }
         elsif ( $t->type() == B_EXP ) {
 
             if ( ($op1->term_type() == T_OPERATOR) && ($op1->type() == B_EXP) ) {
                 $return_t = prepare( Math::Symbolic::Operator->new('^', $op1->op1(), Math::Symbolic::Operator->new('*', $op1->op2(), $op2)), $d);
+            }
+            elsif ( ($op1->term_type() == T_CONSTANT) && ($op2->term_type() == T_OPERATOR) && ($op2->type() == B_LOG) &&
+				($op2->op1()->term_type() == T_CONSTANT) && ($op2->op1()->value() == $op1->value())	) {
+				# Inverse rule of exponents of logs: b^log(b,x) = x
+            	$return_t = $op2->op2()->new();
             }
             elsif ( ($op2->term_type() == T_CONSTANT) && ($op2->special() eq '') ) {         
      
